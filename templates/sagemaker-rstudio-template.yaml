@@ -101,12 +101,12 @@ Resources:
         PrivateSubnet1CIDR: !Ref PrivateSubnet1CIDR
         PrivateSubnet2CIDR: !Ref PrivateSubnet2CIDR
         PrivateSubnet3CIDR: !Ref PrivateSubnet3CIDR
-      TemplateURL: https://sagemaker-rppth.s3.ca-central-1.amazonaws.com/sagemaker-rstudio-vpc.yaml
+      TemplateURL: https://<bucket>.s3.<region>.amazonaws.com/sagemaker-rstudio-vpc.yaml
   
   IAM:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://sagemaker-rppth.s3.ca-central-1.amazonaws.com/sagemaker-rstudio-iam.yaml
+      TemplateURL: https://<bucket>.s3.<region>.amazonaws.com/sagemaker-rstudio-iam.yaml
   
   SageMaker:
     Type: AWS::CloudFormation::Stack
@@ -121,7 +121,7 @@ Resources:
         SecurityGroups: !GetAtt VPC.Outputs.SageMakerSecurityGroup
         RStudioConnectUrl: !Ref RStudioConnectUrl
         RStudioPackageManagerUrl: !Ref RStudioPackageManagerUrl
-      TemplateURL: https://sagemaker-rppth.s3.ca-central-1.amazonaws.com/sagemaker-rstudio-domain.yaml
+      TemplateURL: https://<bucket>.s3.<region>.amazonaws.com/sagemaker-rstudio-domain.yaml
 
   Redshift:
     Type: AWS::CloudFormation::Stack
@@ -132,4 +132,4 @@ Resources:
         SubnetIds: !GetAtt VPC.Outputs.SubnetIds
         SecurityGroups: !GetAtt VPC.Outputs.RedshiftSecurityGroup
         ExecutionRoleArn: !GetAtt IAM.Outputs.ExecutionRoleArn
-      TemplateURL: https://sagemaker-rppth.s3.ca-central-1.amazonaws.com/sagemaker-rstudio-redshift.yaml
+      TemplateURL: https://<bucket>.s3.<region>.amazonaws.com/sagemaker-rstudio-redshift.yaml
