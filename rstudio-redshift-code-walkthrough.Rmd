@@ -1,0 +1,162 @@
+---
+title: "RStudio & Redshift Connection"
+---
+
+Creating an ODBC Connection with Amazon Redshift Serverless
+
+```{r}
+library(DBI)
+library(reticulate)
+path_to_python <- system("which python", intern = TRUE)
+use_python(path_to_python)
+boto3 <- import('boto3')
+client <- boto3$client('redshift-serverless')
+workgroup <- unlist(client$list_workgroups())
+namespace <- unlist(client$get_namespace(namespaceName=workgroup$workgroups.namespaceName))
+creds <- client$get_credentials(dbName=namespace$namespace.dbName,
+                                durationSeconds=3600L,
+                                workgroupName=workgroup$workgroups.workgroupName)
+con <- dbConnect(odbc::odbc(),
+                 Driver='redshift',
+                 Server=workgroup$workgroups.endpoint.address,
+                 Port='5439',
+                 Database=namespace$namespace.dbName,
+                 UID=creds$dbUser,
+                 PWD=creds$dbPassword)
+```
+
+Now we will use the DBI package function dbListTables() to view existing tables.
+
+```{r}
+dbListTables(con)
+```
+
+Use dbGetQuery() to pass an SQL query to the database.
+
+```{r}
+dbGetQuery(con, "select * from synthetic.users limit 100")
+dbGetQuery(con, "select * from synthetic.cards limit 100")
+dbGetQuery(con, "select * from synthetic.transactions limit 100")
+```
+
+We can also the dbplyr and dplyr packages to execute queries in the database. Let's count() how many transactions are in the transactions table. But first we need to install these packages.
+
+```{r}
+install.packages(c("dplyr", "dbplyr", "crayon"))
+```
+
+Use the tbl() function while specifying the schema.
+
+```{r}
+library(dplyr)
+library(dbplyr)
+
+users_tbl <- tbl(con, in_schema("synthetic", "users"))
+cards_tbl <- tbl(con, in_schema("synthetic", "cards"))
+transactions_tbl <- tbl(con, in_schema("synthetic", "transactions"))
+```
+
+Let's run a count of the number of rows for each table.
+
+```{r}
+count(users_tbl)
+count(cards_tbl)
+count(transactions_tbl)
+```
+
+So we have 2,000 users, 6,146 cards, and 24,386,900 transactions. We can also view the tables in the console.
+
+```{r}
+transactions_tbl
+```
+
+We can also view what dplyr verbs are doing under the hood.
+
+```{r}
+show_query(transactions_tbl)
+```
+
+Let's visually explore the number of transactions by year.
+
+```{r}
+transactions_by_year <- transactions_tbl %>%
+  count(year) %>%
+  arrange(year) %>%
+  collect()
+
+transactions_by_year
+```
+
+```{r}
+install.packages(c('ggplot2', 'vctrs'))
+```
+
+```{r}
+library(ggplot2)
+ggplot(transactions_by_year) +
+  geom_col(aes(year, as.integer(n))) +
+  ylab('transactions') 
+```
+
+We can also summarize data in the database as follows:
+
+```{r}
+transactions_tbl %>%
+  group_by(is_fraud) %>%
+  count()
+```
+
+```{r}
+transactions_tbl %>%
+  group_by(merchant_category_code, is_fraud) %>%
+  count() %>% 
+  arrange(merchant_category_code)
+```
+
+Suppose we want to view fraud using card information. We just need to join the tables and then group by the attribute.
+
+```{r}
+cards_tbl %>%
+  left_join(transactions_tbl, by = c("user_id", "card_id")) %>%
+  group_by(card_brand, card_type, is_fraud) %>%
+  count() %>% 
+  arrange(card_brand)
+```
+
+Now let's prepare a dataset that could be used for machine learning. Let's filter the transaction data to just include Discover credit cards while only keeping a subset of columns.
+
+```{r}
+discover_tbl <- cards_tbl %>%
+  filter(card_brand == 'Discover', card_type == 'Credit') %>%
+  left_join(transactions_tbl, by = c("user_id", "card_id")) %>%
+  select(user_id, is_fraud, merchant_category_code, use_chip, year, month, day, time_stamp, amount)
+```
+
+We will clean the dataset using the following transformations:
+
+    Convert is_fraud to binary attribute.
+    Remove transaction string from use_chip and rename it to type.
+    Combine year, month, and day into a data object.
+    Remove $ from amount and convert to a numeric data type.
+
+```{r}
+discover_tbl <- discover_tbl %>%
+  mutate(is_fraud = ifelse(is_fraud == 'Yes', 1, 0),
+         type = str_remove(use_chip, 'Transaction'),
+         type = str_trim(type),
+         type = tolower(type),
+         date = paste(year, month, day, sep = '-'),
+         date = as.Date(date),
+         amount = str_remove(amount, '[$]'),
+         amount = as.numeric(amount)) %>%
+  select(-use_chip, -year, -month, -day)
+```
+
+Now that we have filtered and cleaned our dataset, we are ready to collect this dataset into local RAM.
+
+```{r}
+discover <- collect(discover_tbl)
+summary(discover)
+```
+
+Now we have a working dataset to start creating features and fitting models. We will not cover those steps in this blog as we want to highlight how to work with database tables in Redshift to prepare a dataset to bring into our local environment.

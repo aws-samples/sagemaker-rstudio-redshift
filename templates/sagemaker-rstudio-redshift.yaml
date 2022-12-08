@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates a Redshift Serverless cluster
+
+Parameters:
+  ProjectName:
+    Type: String
+  DatabaseName:
+    Type: String
+  SubnetIds:
+    Type: CommaDelimitedList
+  SecurityGroups:
+    Type: CommaDelimitedList
+  ExecutionRoleArn:
+    Type: String
+
+Resources:
+  RedshiftServerlessNamespace:
+    Type: AWS::RedshiftServerless::Namespace
+    Properties: 
+      AdminUsername: admin
+      AdminUserPassword: Redshift007
+      DbName: !Ref DatabaseName
+      DefaultIamRoleArn: !Ref ExecutionRoleArn
+      IamRoles: 
+        - !Ref ExecutionRoleArn
+      NamespaceName: !Sub ${ProjectName}-namespace
+
+  RedshiftServerlessWorkgroup:
+    Type: AWS::RedshiftServerless::Workgroup
+    Properties: 
+      EnhancedVpcRouting: false
+      NamespaceName: !Ref RedshiftServerlessNamespace
+      PubliclyAccessible: true
+      SecurityGroupIds: !Ref SecurityGroups
+      SubnetIds: !Ref SubnetIds
+      WorkgroupName: !Sub ${ProjectName}-workgroup

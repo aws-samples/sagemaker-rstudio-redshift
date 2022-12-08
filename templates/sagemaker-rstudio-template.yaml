@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates the infrastructure for SageMaker RStudio to communicate with Redshift Serverless
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Required SageMaker RStudio Domain Parameters
+        Parameters:
+          - ProjectName
+          - DatabaseName
+          - RStudioDomainName
+          - RStudioUserProfileName
+          - VpcCIDR
+          - PublicSubnet1CIDR
+          - PrivateSubnet1CIDR
+          - PrivateSubnet2CIDR
+          - PrivateSubnet3CIDR
+      - Label:
+          default: Optional SageMaker RStudio Domain Parameters
+        Parameters:
+          - RStudioConnectUrl
+          - RStudioPackageManagerUrl
+    ParameterLabels:
+      ProjectName:
+        default: Project Name
+      DatabaseName:
+        default: Database Name
+      RStudioDomainName:
+        default: Domain Name
+      RStudioUserProfileName:
+        default: RStudio User Profile Name
+      VpcCIDR:
+        default: Vpc CIDR
+      PublicSubnet1CIDR:
+        default: Public Subnet 1 CIDR
+      PrivateSubnet1CIDR:
+        default: Private Subnet 1 CIDR
+      PrivateSubnet2CIDR:
+        default: Private Subnet 2 CIDR
+      PrivateSubnet3CIDR:
+        default: Private Subnet 3 CIDR
+      RStudioConnectUrl:
+        default: RStudio Connect Url
+      RStudioPackageManagerUrl:
+        default: RStudio Package Manager Url
+
+Parameters:
+  ProjectName:
+    Description: SageMaker RStudio project name
+    Type: String
+    Default: sagemaker-rstudio
+  DatabaseName:
+    Description: Redshift serverless database name
+    Type: String
+    Default: sagemaker
+  RStudioDomainName:
+    Description: SageMaker RStudio domain name
+    Type: String
+    Default: rstudio-domain
+  RStudioUserProfileName:
+    Description: SageMaker RStudio user profile name
+    Type: String
+    Default: rstudio-user
+  VpcCIDR:
+    Description: VPC CIDR
+    Type: String
+    Default: 10.1.0.0/16
+  PublicSubnet1CIDR:
+    Description: VPC public subnet 1 CIDR
+    Type: String
+    Default: 10.1.1.0/24
+  PrivateSubnet1CIDR:
+    Description: VPC private subnet 1 CIDR
+    Type: String
+    Default: 10.1.2.0/24
+  PrivateSubnet2CIDR:
+    Description: VPC private subnet 2 CIDR
+    Type: String
+    Default: 10.1.3.0/24
+  PrivateSubnet3CIDR:
+    Description: VPC private subnet 3 CIDR
+    Type: String
+    Default: 10.1.4.0/24
+  RStudioConnectUrl:
+    Description: A URL pointing to a SageMaker RStudio Connect server
+    Type: String
+    Default: ''
+  RStudioPackageManagerUrl:
+    Description: A URL pointing to a SageMaker RStudio Package Manager server
+    Type: String
+    Default: ''
+
+Resources:
+  VPC:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        ProjectName: !Ref ProjectName
+        VpcCIDR: !Ref VpcCIDR
+        PublicSubnet1CIDR: !Ref PublicSubnet1CIDR
+        PrivateSubnet1CIDR: !Ref PrivateSubnet1CIDR
+        PrivateSubnet2CIDR: !Ref PrivateSubnet2CIDR
+        PrivateSubnet3CIDR: !Ref PrivateSubnet3CIDR
+      TemplateURL: https://sagemaker-rppth.s3.ca-central-1.amazonaws.com/sagemaker-rstudio-vpc.yaml
+  
+  IAM:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://sagemaker-rppth.s3.ca-central-1.amazonaws.com/sagemaker-rstudio-iam.yaml
+  
+  SageMaker:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        DomainName: !Ref RStudioDomainName
+        UserProfileName: !Ref RStudioUserProfileName
+        ExecutionRoleArn: !GetAtt IAM.Outputs.ExecutionRoleArn
+        DomainExecutionRoleArn: !GetAtt IAM.Outputs.DomainExecutionRoleArn
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        SubnetIds: !GetAtt VPC.Outputs.SubnetIds
+        SecurityGroups: !GetAtt VPC.Outputs.SageMakerSecurityGroup
+        RStudioConnectUrl: !Ref RStudioConnectUrl
+        RStudioPackageManagerUrl: !Ref RStudioPackageManagerUrl
+      TemplateURL: https://sagemaker-rppth.s3.ca-central-1.amazonaws.com/sagemaker-rstudio-domain.yaml
+
+  Redshift:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        ProjectName: !Ref ProjectName
+        DatabaseName: !Ref DatabaseName
+        SubnetIds: !GetAtt VPC.Outputs.SubnetIds
+        SecurityGroups: !GetAtt VPC.Outputs.RedshiftSecurityGroup
+        ExecutionRoleArn: !GetAtt IAM.Outputs.ExecutionRoleArn
+      TemplateURL: https://sagemaker-rppth.s3.ca-central-1.amazonaws.com/sagemaker-rstudio-redshift.yaml

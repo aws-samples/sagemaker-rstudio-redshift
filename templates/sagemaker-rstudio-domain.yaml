@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates a SageMaker RStudio domain with 1 user profile
+
+Parameters:
+  DomainName:
+    Type: String
+  ExecutionRoleArn:
+    Type: String
+  VpcId:
+    Type: String
+  SubnetIds:
+    Type: CommaDelimitedList
+  SecurityGroups:
+    Type: CommaDelimitedList
+  DomainExecutionRoleArn:
+    Type: String
+  UserProfileName:
+    Type: String
+  RStudioConnectUrl:
+    Type: String
+  RStudioPackageManagerUrl:
+    Type: String
+
+Conditions:
+  RStudioConnectUrlExists: !Not [!Equals [!Ref RStudioConnectUrl, '']]
+  RStudioPackageManagerUrlExists: !Not [!Equals [!Ref RStudioPackageManagerUrl, '']]
+
+Resources:
+  SageMakerRStudioDomain:
+    Type: AWS::SageMaker::Domain
+    Properties:
+      AppNetworkAccessType: VpcOnly
+      AppSecurityGroupManagement: Service
+      AuthMode: IAM
+      DefaultUserSettings:
+        ExecutionRole: !Ref ExecutionRoleArn
+        SecurityGroups: !Ref SecurityGroups
+      DomainName: !Ref DomainName
+      DomainSettings:
+        SecurityGroupIds: !Ref SecurityGroups
+        RStudioServerProDomainSettings:
+          DomainExecutionRoleArn: !Ref DomainExecutionRoleArn
+          RStudioConnectUrl: 
+            !If [RStudioConnectUrlExists, !Ref RStudioConnectUrl, !Ref "AWS::NoValue"]
+          RStudioPackageManagerUrl: 
+            !If [RStudioPackageManagerUrlExists, !Ref RStudioPackageManagerUrl, !Ref "AWS::NoValue"]
+      SubnetIds: !Ref SubnetIds
+      VpcId: !Ref VpcId
+
+  RStudioUserProfile:
+    Type: AWS::SageMaker::UserProfile
+    Properties:
+      DomainId: !GetAtt SageMakerRStudioDomain.DomainId
+      UserProfileName: !Ref UserProfileName
+      UserSettings:
+        ExecutionRole: !Ref ExecutionRoleArn
+        RStudioServerProAppSettings:
+          AccessStatus: ENABLED
+          UserGroup: R_STUDIO_USER
