@@ -8,7 +8,7 @@ This blog post describes how to connect Amazon SageMaker RStudio to Redshift Ser
 ## Launching AWS CloudFormation
 Please refer to [Get started with RStudio on Amazon SageMaker](https://aws.amazon.com/blogs/machine-learning/get-started-with-rstudio-on-amazon-sagemaker/) which describes the steps to create a SageMaker domain with RStudio. Use the following AWS CloudFormation stack to create the infrastructure needed to connect SageMaker RStudio to a Redshift Serverless database:
 
-[Launch Stack Button](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=sagemaker-rstudio-redshift-serverless&templateURL=https://sagemaker-customer.s3.amazonaws.com/sagemaker-rstudio-redshift/sagemaker-rstudio-template.yaml)
+[Launch Stack Button](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=sagemaker-rstudio-redshift-serverless&templateURL=https://aws-blogs-artifacts-public.s3.amazonaws.com/artifacts/ML-12071/sagemaker-rstudio-template.yaml)
 
 Launching this stack creates the following resources:
 
